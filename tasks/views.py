@@ -5,38 +5,84 @@ from django.contrib.auth.models import User
 from rest_framework import status
 from .serializers import *
 from .models import *
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def getTasks(request):
+    user = request.user
+    if not request.user.is_authenticated:
+        raise PermissionDenied("You must be logged in to access this resource.")
+    
+    task = Task.objects.filter(user = user)
+
+    task_serializer = TaskSerializer(task, many = True)
+
+    return Response({
+        "status" : "success",
+        "tasks" : task_serializer.data
+        }, status= status.HTTP_200_OK)
+
+# To Get Data for admin and staff users [''this method not used'']
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def getAllTasks(request):
+    if not request.user.is_authenticated:
+        raise PermissionDenied("You must be logged in to access this resource.")
+    
+    if not request.user.is_staff:
+        raise PermissionDenied("You do not have permission to access this resource.")
+
     task = Task.objects.all()
 
     task_serializer = TaskSerializer(task, many = True)
 
-    return Response({"tasks" : task_serializer.data}, status= status.HTTP_200_OK)
+    return Response({
+        "status" : "success",
+        "tasks" : task_serializer.data
+        }, status= status.HTTP_200_OK)
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def getTaskById(request, task_id):
+    user = request.user
     try:
-        task = get_object_or_404(Task, id=task_id)
+        if not request.user.is_authenticated:
+            raise PermissionDenied("You must be logged in to access this resource.")
+
+        task = get_object_or_404(Task, id=task_id, user = user)
 
         task_serializer = TaskSerializer(task, many = False)
-
-        return Response({"tasks" : task_serializer.data}, status= status.HTTP_200_OK)
     
+        return Response({
+            "status" : "success",
+            "task" : task_serializer.data
+            }, status= status.HTTP_200_OK)
+
     except Task.DoesNotExist as e:
-        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            "status" : "failed",
+            "error": str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
 
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "status" : "failed",
+            "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def addNewTask(request):
     data = request.data
     try:
+        if not request.user.is_authenticated:
+            raise PermissionDenied("You must be logged in to access this resource.")
+        
         due_date = data['due_date']
 
         if isinstance(due_date, str):
@@ -47,6 +93,7 @@ def addNewTask(request):
         aware_due_date = timezone.make_aware(naive_due_date)
 
         task = Task.objects.create(
+            user = request.user,
             title=data.get('title', ''),
             description=data.get('description', ''),
             priority=data.get('priority', TaskPriority.LOW),
@@ -55,19 +102,30 @@ def addNewTask(request):
             image=data.get('image', "default_task.jpg")
         )
 
-        serializer = TaskSerializer(task)
-
-        return Response({"task": serializer.data}, status=status.HTTP_201_CREATED)
+        task_serializer = TaskSerializer(task)
+    
+        return Response({
+            "status" : "success",
+            "task" : task_serializer.data
+            }, status= status.HTTP_201_CREATED)
 
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "status" : "failed",
+            "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PUT'])
+@permission_classes([IsAuthenticated])
 def editTask(request, task_id):
+    user = request.user
     data = request.data
     try:
-        task = get_object_or_404(Task, id=task_id)
+        if not request.user.is_authenticated:
+            raise PermissionDenied("You must be logged in to access this resource.")
+    
+        task = get_object_or_404(Task, id=task_id, user = user)
 
         due_date = data.get('due_date')
         if due_date:
@@ -88,17 +146,28 @@ def editTask(request, task_id):
 
         task.save()
 
-        serializer = TaskSerializer(task)
+        task_serializer = TaskSerializer(task)
 
-        return Response({"task": serializer.data}, status=status.HTTP_200_OK)
+        return Response({
+                "status" : "success",
+                "task" : task_serializer.data
+                }, status= status.HTTP_201_CREATED)
 
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "status" : "failed",
+            "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def deleteTask(request, task_id):
+    user = request.user
     try:
-        task = get_object_or_404(Task, id=task_id)
+        if not request.user.is_authenticated:
+            raise PermissionDenied("You must be logged in to access this resource.")
+
+        task = get_object_or_404(Task, id=task_id, user = user)
 
         task.delete()
 

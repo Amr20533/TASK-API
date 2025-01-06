@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class TaskStatus(models.TextChoices):
     PENDING = 'pending'
@@ -11,6 +12,7 @@ class TaskPriority(models.TextChoices):
     LOW = 'low'
 
 class Task(models.Model):
+    user = models.ForeignKey(User, related_name= "user_tasks", on_delete= models.CASCADE, default= "", blank= False)
     title = models.CharField(max_length= 250, blank= False, default= "")
     description = models.CharField(max_length= 1300, blank= False, default= "")
     priority = models.CharField(max_length= 60, blank= False, default= TaskPriority.LOW , choices= TaskPriority.choices)

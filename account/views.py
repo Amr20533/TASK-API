@@ -68,7 +68,6 @@ def register(request):
             response_serializer = UserSerializer(user)
             return Response({
                 "status": "success",
-                "message": "User registered successfully",
                 "data": response_serializer.data
             })
         else:
@@ -140,7 +139,7 @@ def updatePassword(request):
             "message": "New password and confirm password do not match."
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    user.set_password(make_password(data['newPassword']))
+    user.set_password(data['newPassword'])
     user.save()
 
     return Response({
