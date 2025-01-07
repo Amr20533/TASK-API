@@ -69,18 +69,18 @@ def register(request):
             return Response({
                 "status": "success",
                 "data": response_serializer.data
-            })
+            }, status= status.HTTP_201_CREATED)
         else:
             return Response({
                 "status": "failed",
                 "message": "Email address already exists"
-            })
+            }, status= status.HTTP_302_FOUND)
     else:
         return Response({
             "status": "failed",
             "message": "Validation errors occurred",
             "errors": user_serializer.errors
-        })
+            }, status= status.HTTP_404_NOT_FOUND)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
