@@ -1,7 +1,7 @@
 from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
@@ -13,6 +13,7 @@ from django.utils.crypto import get_random_string
 
 from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.parsers import MultiPartParser, FormParser
 
 @api_view(['POST'])
 def login_user(request):
@@ -94,24 +95,35 @@ def currentUser(request):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])  # Enable file upload parsing
 def updateCurrentUser(request):
     user = request.user
     user_data = request.data
 
-    serializer = UserSerializer(user, data=user_data, partial=True)
+    try:
+        # Combine `request.data` and `request.FILES` to handle file inputs
+        user_data = {**user_data.dict(), **request.FILES}
 
-    if serializer.is_valid():
-        serializer.save()
+        serializer = UserSerializer(user, data=user_data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": "success",
+                "data": serializer.data
+            })
+        else:
+            return Response({
+                "status": "error",
+                "message": "Failed to update user data",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
         return Response({
-            "status": "success",
-            "data": serializer.data
-        })
-
-    return Response({
-        "status": "error",
-        "message": "Failed to update user data",
-        "errors": serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+            "status": "error",
+            "message": "Failed to update user data",
+            "errors": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])

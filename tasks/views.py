@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404, render
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from rest_framework import status
@@ -8,6 +8,7 @@ from .models import *
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 @api_view(['GET'])
@@ -77,43 +78,44 @@ def getTaskById(request, task_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def addNewTask(request):
     data = request.data
     try:
         if not request.user.is_authenticated:
             raise PermissionDenied("You must be logged in to access this resource.")
-        
-        due_date = data['due_date']
 
-        if isinstance(due_date, str):
-            naive_due_date = timezone.datetime.fromisoformat(due_date)
+        due_date = data.get('due_date')
+        if due_date:
+            if isinstance(due_date, str):
+                naive_due_date = timezone.datetime.fromisoformat(due_date)
+            else:
+                naive_due_date = due_date
+            aware_due_date = timezone.make_aware(naive_due_date)
         else:
-            naive_due_date = due_date
-
-        aware_due_date = timezone.make_aware(naive_due_date)
+            aware_due_date = None
 
         task = Task.objects.create(
-            user = request.user,
-            title=data.get('title', ''),
-            description=data.get('description', ''),
+            user=request.user,
+            title=data['title'],
+            description=data['description'],
             priority=data.get('priority', TaskPriority.LOW),
             due_date=aware_due_date,
             status=data.get('status', TaskStatus.PENDING),
-            image=data.get('image', "default_task.jpg")
+            image= data.get("image", 'task_images/default_task.png'),
         )
 
         task_serializer = TaskSerializer(task)
-    
         return Response({
-            "status" : "success",
-            "task" : task_serializer.data
-            }, status= status.HTTP_201_CREATED)
+            "status": "success",
+            "task": task_serializer.data
+        }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
         return Response({
-            "status" : "failed",
+            "status": "failed",
             "error": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PUT'])
@@ -171,10 +173,19 @@ def deleteTask(request, task_id):
 
         task.delete()
 
-        return Response({"detail" : "Task is Successfully Deleted!!"}, status= status.HTTP_200_OK)
+        return Response({
+                "status" : "success",
+                "task" : {}
+            }, status= status.HTTP_204_NO_CONTENT)
     
     except Task.DoesNotExist as e:
-        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            "status" : "failed",
+            "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "status" : "failed",
+            "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)

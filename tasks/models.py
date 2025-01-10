@@ -18,6 +18,9 @@ class Task(models.Model):
     priority = models.CharField(max_length= 60, blank= False, default= TaskPriority.LOW , choices= TaskPriority.choices)
     due_date = models.DateTimeField(max_length= 90, blank= False)
     status = models.CharField(max_length= 60, blank= False, default= TaskStatus.PENDING , choices= TaskStatus.choices)
-    image = models.ImageField(upload_to= "task_images", default= "default_task.jpg")
+    image = models.ImageField(upload_to= "task_images", default= "task_images/default_task.png")
     created_at = models.DateField(auto_now_add= True)
+
+    def __str__(self):
+        return self.title
 
